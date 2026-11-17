@@ -1,0 +1,103 @@
+# Board: Generic ESP32-S3 Board (Generic)
+# Definition: definitions/boards/generic-esp32s3/manifest.yaml
+
+esphome:
+  name: litra-beam-controller
+  friendly_name: Litra Beam Controller
+  includes:
+    - litra_ble.h
+  on_boot:
+    priority: 200
+    then:
+      - lambda: |-
+          int dev_num = esp_ble_get_bond_device_num();
+          if (dev_num > 0) {
+            esp_ble_bond_dev_t *dev_list = (esp_ble_bond_dev_t *)malloc(sizeof(esp_ble_bond_dev_t) * dev_num);
+            esp_ble_get_bond_device_list(&dev_num, dev_list);
+            for (int i = 0; i < dev_num; i++) {
+              esp_ble_remove_bond_device(dev_list[i].bd_addr);
+            }
+            free(dev_list);
+          }
+
+esp32:
+  variant: esp32s3
+  framework:
+    type: esp-idf
+    advanced:
+      flash_chip: generic
+      
+logger:
+
+api:
+  encryption:
+    key: !secret api_encryption_key
+    
+ota:
+  - platform: esphome
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  ap:
+    ssid: Litra Beam Cont Fallback Hotspot
+    password: !secret hotspot_password
+    
+captive_portal:
+
+# --- Litra Beam BLE Configuration ---
+
+esp32_ble_tracker:
+  on_ble_advertise:
+    - then:
+        - lambda: |-
+            if (x.get_name() == "Litra Beam") {
+              if (id(litra_ble_device)->get_address() != x.address_uint64()) {
+                ESP_LOGI("mac_hunter", "Litra Beam found! Dynamically updating target MAC.");
+                id(litra_ble_device)->set_address(x.address_uint64());
+              }
+            }
+
+ble_client:
+  - mac_address: "FA:C7:7F:13:05:C2"
+    id: litra_ble_device
+
+# --- State Tracking & Native Light Controls ---
+
+globals:
+  - id: litra_bri_val
+    type: float
+    restore_value: no
+    initial_value: '0.0'
+  - id: litra_ct_val
+    type: float
+    restore_value: no
+    initial_value: '0.5'
+
+output:
+  - platform: template
+    id: litra_brightness_out
+    type: float
+    write_action:
+      - lambda: |-
+          id(litra_bri_val) = state;
+          esphome::litra::LitraController::instance(id(litra_ble_device))->update_light(id(litra_bri_val), id(litra_ct_val));
+
+  - platform: template
+    id: litra_color_temp_out
+    type: float
+    write_action:
+      - lambda: |-
+          id(litra_ct_val) = state;
+          esphome::litra::LitraController::instance(id(litra_ble_device))->update_light(id(litra_bri_val), id(litra_ct_val));
+
+light:
+  - platform: color_temperature
+    name: "Litra Beam"
+    id: litra_beam_light
+    brightness: litra_brightness_out
+    color_temperature: litra_color_temp_out
+    cold_white_color_temperature: 6500 K
+    warm_white_color_temperature: 2700 K
+    default_transition_length: 0s
+    gamma_correct: 1.0
