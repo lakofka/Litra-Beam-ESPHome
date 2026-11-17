@@ -1,5 +1,7 @@
 # Logitech Litra Beam BLE Bridge for Home Assistant (ESPHome)
 
+**Created with a lot of help from Google Gemini 3.1 Pro.**
+
 A standalone **ESP32-S3** Bluetooth Low Energy (BLE) bridge built with **ESPHome** (ESP-IDF framework) that exposes a **Logitech Litra Beam** key light natively to **Home Assistant** with full Power, Brightness (20–250 lumens), and Color Temperature (2700K–6500K) controls—without requiring a host PC, USB tether, or Logi Tune software.
 
 ---
